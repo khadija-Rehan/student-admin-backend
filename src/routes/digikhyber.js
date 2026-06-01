@@ -8,6 +8,7 @@ const {
   getTelemarketing, getTeleStats, updateTeleStatus,
   getApplications, getMonthlyStats,
   getDigiCourses,
+  updateDigiStudent, generateDigiChallan,
 } = require('../controllers/digiController')
 const { verifyToken } = require('../middleware/auth')
 
@@ -19,6 +20,7 @@ router.get('/dashboard-stats',           getDashboardStats)
 // Students
 router.get('/students',                  getDigiStudents)
 router.get('/students/:id',              getDigiStudentById)
+router.put('/students/:id',              updateDigiStudent)
 router.get('/stats',                     getDigiStats)
 router.patch('/students/:id/test',       updateTestScore)
 router.delete('/students/:id',           deleteDigiStudent)
@@ -36,6 +38,7 @@ router.get('/challan-stats',             getDigiChallanStats)
 router.post('/challan-inquiry',          challanInquiry)
 router.post('/challan-mark-paid',        markChallanPaid)
 router.patch('/challans/:id',            updateDigiChallan)
+router.post('/generate-challan',         generateDigiChallan)
 
 // Telemarketing
 router.get('/telemarketing',             getTelemarketing)

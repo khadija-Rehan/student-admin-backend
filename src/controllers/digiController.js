@@ -532,6 +532,53 @@ const getMonthlyStats = async (req, res) => {
   }
 }
 
+const updateDigiStudent = async (req, res) => {
+  try {
+    await connectMongo()
+    const { id } = req.params
+    const updatedData = req.body
+
+    const student = await DigiUser.findByIdAndUpdate(id, updatedData, { new: true })
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Student not found.' })
+    }
+
+    res.json({ success: true, message: 'Student updated successfully.', data: student })
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message })
+  }
+}
+
+const generateDigiChallan = async (req, res) => {
+  try {
+    const { userId } = req.body
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'User ID is required.' })
+    }
+
+    const digiApiUrl = process.env.DIGI_API_URL || 'http://localhost:5001/api'
+    const apiKey = process.env.ADMIN_API_KEY || '123456789'
+
+    const response = await fetch(`${digiApiUrl}/admin/generate-pdf`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': apiKey
+      },
+      body: JSON.stringify({ userId })
+    })
+
+    const result = await response.json()
+    if (!response.ok) {
+      return res.status(response.status).json({ success: false, message: result.message || 'Failed to generate challan.' })
+    }
+
+    res.json(result)
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message })
+  }
+}
+
 module.exports = {
   getDigiStudents, getDigiStudentById, getDigiStats, deleteDigiStudent,
   updateDigiChallan,
@@ -541,4 +588,6 @@ module.exports = {
   getTelemarketing, getTeleStats, updateTeleStatus,
   getApplications, getMonthlyStats,
   getDigiCourses,
+  updateDigiStudent, generateDigiChallan,
 }
+
