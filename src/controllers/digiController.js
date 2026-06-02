@@ -551,27 +551,44 @@ const updateDigiStudent = async (req, res) => {
 
 const generateDigiChallan = async (req, res) => {
   try {
+    await connectMongo()
     const { userId } = req.body
     if (!userId) return res.status(400).json({ success: false, message: 'User ID is required.' })
 
-    const digiApiUrl = process.env.DIGI_API_URL || 'https://digikhyber-backend.onrender.com/api'
-    const apiKey     = process.env.ADMIN_API_KEY || '123456789'
+    const user = await DigiUser.findById(userId).select('-password -verifyToken -resetPasswordToken -resetPasswordExpire')
+    if (!user) return res.status(404).json({ success: false, message: 'Student not found.' })
 
-    const controller = new AbortController()
-    const timeout    = setTimeout(() => controller.abort(), 120000)
-    const response   = await fetch(`${digiApiUrl}/admin/generate-pdf`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
-      body:    JSON.stringify({ userId }),
-      signal:  controller.signal,
-    })
-    clearTimeout(timeout)
-
-    const result = await response.json()
-    if (!response.ok) {
-      return res.status(response.status).json({ success: false, message: result.message || 'Failed to generate challan.' })
+    let challan = await DigiChallan.findOne({ userId: userId.toString() })
+    if (!challan) {
+      const shortTime = Date.now().toString().slice(-5)
+      const random    = Math.floor(Math.random() * 1000).toString().padStart(3, '0')
+      challan = new DigiChallan({
+        userId:    userId.toString(),
+        challanId: shortTime + random,
+        amount:    3250,
+        paid:      false,
+      })
+      await challan.save()
     }
-    res.json(result)
+
+    res.json({
+      success: true,
+      status:  'success',
+      data: {
+        challanNumber: challan.challanId,
+        amount:        challan.amount,
+        paid:          challan.paid,
+        student: {
+          fullName:   user.fullName,
+          fatherName: user.fatherName,
+          mobile:     user.mobile,
+          email:      user.email,
+          cnic:       user.cnic,
+          courses:    user.courses || [],
+          rollNumber: user.rollNumber,
+        },
+      }
+    })
   } catch (err) {
     res.status(500).json({ success: false, message: err.message })
   }
