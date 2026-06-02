@@ -556,7 +556,7 @@ const generateDigiChallan = async (req, res) => {
       return res.status(400).json({ success: false, message: 'User ID is required.' })
     }
 
-    const digiApiUrl = process.env.DIGI_API_URL || 'http://localhost:5001/api'
+    const digiApiUrl = process.env.DIGI_API_URL || 'https://digikhyber-backend.onrender.com/api'
     const apiKey = process.env.ADMIN_API_KEY || '123456789'
 
     const response = await fetch(`${digiApiUrl}/admin/generate-pdf`, {
