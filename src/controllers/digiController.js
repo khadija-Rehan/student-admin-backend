@@ -559,14 +559,15 @@ const generateDigiChallan = async (req, res) => {
     const digiApiUrl = process.env.DIGI_API_URL || 'https://digikhyber-backend.onrender.com/api'
     const apiKey = process.env.ADMIN_API_KEY || '123456789'
 
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 120000) // 2 min timeout
     const response = await fetch(`${digiApiUrl}/admin/generate-pdf`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': apiKey
-      },
-      body: JSON.stringify({ userId })
+      headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+      body: JSON.stringify({ userId }),
+      signal: controller.signal,
     })
+    clearTimeout(timeout)
 
     const result = await response.json()
     if (!response.ok) {
