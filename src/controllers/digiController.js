@@ -2,6 +2,7 @@ const DigiUser         = require('../models/DigiUser')
 const DigiScholarship  = require('../models/DigiScholarship')
 const DigiChallan      = require('../models/DigiChallan')
 const DigiTeleChallan  = require('../models/DigiTeleChallan')
+const DigiAuditLog     = require('../models/DigiAuditLog')
 const connectMongo     = require('../config/mongodb')
 
 const getDigiStudents = async (req, res) => {
@@ -581,7 +582,7 @@ const getAuditLogs = async (req, res) => {
     const now    = new Date()
     const cutoff = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000) // last 90 days
 
-    const [students, challans, teleChanges, scholarships] = await Promise.all([
+    const [students, challans, teleChanges, scholarships, auditEntries] = await Promise.all([
       DigiUser.find({ createdAt: { $gte: cutoff } })
         .select('fullName rollNumber email createdAt isVerified').sort({ createdAt: -1 }).limit(100).lean(),
       DigiChallan.find({ createdAt: { $gte: cutoff } })
@@ -590,6 +591,8 @@ const getAuditLogs = async (req, res) => {
         .select('userData.fullName status updatedAt createdAt').sort({ updatedAt: -1 }).limit(100).lean(),
       DigiScholarship.find({ updatedAt: { $gte: cutoff } })
         .select('studentName status updatedAt createdAt').sort({ updatedAt: -1 }).limit(100).lean(),
+      DigiAuditLog.find({ createdAt: { $gte: cutoff } })
+        .sort({ createdAt: -1 }).limit(200).lean(),
     ])
 
     const logs = []
@@ -636,6 +639,19 @@ const getAuditLogs = async (req, res) => {
       status:      s.status,
       date:        s.updatedAt,
       meta: { name: s.studentName, status: s.status },
+    }))
+
+    // Add direct audit log entries (e.g. student edits)
+    auditEntries.forEach(a => logs.push({
+      _id:         a._id,
+      type:        a.type,
+      category:    a.category,
+      title:       a.title,
+      description: a.description,
+      status:      a.status,
+      date:        a.createdAt,
+      meta:        a.meta || {},
+      performedBy: a.performedBy,
     }))
 
     // Filter by type
@@ -702,9 +718,27 @@ const updateDigiStudent = async (req, res) => {
     const { id } = req.params
     const updatedData = req.body
 
-    const student = await DigiUser.findByIdAndUpdate(id, updatedData, { new: true })
-    if (!student) {
-      return res.status(404).json({ success: false, message: 'Student not found.' })
+    const oldStudent = await DigiUser.findById(id).lean()
+    const student    = await DigiUser.findByIdAndUpdate(id, updatedData, { new: true })
+    if (!student) return res.status(404).json({ success: false, message: 'Student not found.' })
+
+    // Log changed fields to audit
+    const changedFields = {}
+    Object.keys(updatedData).forEach(key => {
+      if (oldStudent && String(oldStudent[key]) !== String(updatedData[key])) {
+        changedFields[key] = { from: oldStudent[key], to: updatedData[key] }
+      }
+    })
+    if (Object.keys(changedFields).length > 0) {
+      await DigiAuditLog.create({
+        type:        'STUDENT_EDITED',
+        category:    'Students',
+        title:       'Student record edited',
+        description: `${student.fullName} (${student.rollNumber || student.email})`,
+        status:      'Updated',
+        meta:        { ...changedFields, rollNumber: student.rollNumber, name: student.fullName },
+        performedBy: req.user?.name || 'Admin',
+      })
     }
 
     res.json({ success: true, message: 'Student updated successfully.', data: student })
