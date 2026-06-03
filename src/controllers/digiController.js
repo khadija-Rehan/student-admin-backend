@@ -558,8 +558,8 @@ const generateDigiChallan = async (req, res) => {
     const apiKey     = process.env.ADMIN_API_KEY || '123456789'
 
     const controller = new AbortController()
-    const timeout    = setTimeout(() => controller.abort(), 120000)
-    const response   = await fetch(`${digiApiUrl}/admin/generate-pdf`, {
+    const timeout    = setTimeout(() => controller.abort(), 30000)
+    const response   = await fetch(`${digiApiUrl}/admin/generate-challan-html`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
       body:    JSON.stringify({ userId }),
