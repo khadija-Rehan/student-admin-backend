@@ -572,6 +572,88 @@ const getApplications = async (req, res) => {
   }
 }
 
+// ─── AUDIT LOGS ───────────────────────────────────────────────
+const getAuditLogs = async (req, res) => {
+  try {
+    await connectMongo()
+    const { page = 1, limit = 20, type = 'all' } = req.query
+
+    const now    = new Date()
+    const cutoff = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000) // last 90 days
+
+    const [students, challans, teleChanges, scholarships] = await Promise.all([
+      DigiUser.find({ createdAt: { $gte: cutoff } })
+        .select('fullName rollNumber email createdAt isVerified').sort({ createdAt: -1 }).limit(100).lean(),
+      DigiChallan.find({ createdAt: { $gte: cutoff } })
+        .select('challanId userId amount paid createdAt updatedAt').sort({ createdAt: -1 }).limit(100).lean(),
+      DigiTeleChallan.find({ updatedAt: { $gte: cutoff } })
+        .select('userData.fullName status updatedAt createdAt').sort({ updatedAt: -1 }).limit(100).lean(),
+      DigiScholarship.find({ updatedAt: { $gte: cutoff } })
+        .select('studentName status updatedAt createdAt').sort({ updatedAt: -1 }).limit(100).lean(),
+    ])
+
+    const logs = []
+
+    students.forEach(s => logs.push({
+      _id:         s._id,
+      type:        'STUDENT_REGISTERED',
+      category:    'Students',
+      title:       `New student registered`,
+      description: `${s.fullName} (${s.rollNumber || s.email})`,
+      status:      s.isVerified ? 'Verified' : 'Pending',
+      date:        s.createdAt,
+      meta: { email: s.email, rollNumber: s.rollNumber, verified: s.isVerified },
+    }))
+
+    challans.forEach(c => logs.push({
+      _id:         c._id,
+      type:        c.paid ? 'CHALLAN_PAID' : 'CHALLAN_CREATED',
+      category:    'Challans',
+      title:       c.paid ? 'Challan marked as paid' : 'Challan generated',
+      description: `Challan ID: ${c.challanId} — PKR ${Number(c.amount).toLocaleString()}`,
+      status:      c.paid ? 'Paid' : 'Unpaid',
+      date:        c.paid ? c.updatedAt : c.createdAt,
+      meta: { challanId: c.challanId, amount: c.amount, paid: c.paid },
+    }))
+
+    teleChanges.forEach(t => logs.push({
+      _id:         t._id + '_tele',
+      type:        'TELE_STATUS_CHANGED',
+      category:    'Telemarketing',
+      title:       `Telemarketing status updated`,
+      description: `${t.userData?.fullName || 'Student'} — ${t.status?.toUpperCase()}`,
+      status:      t.status,
+      date:        t.updatedAt,
+      meta: { name: t.userData?.fullName, status: t.status },
+    }))
+
+    scholarships.forEach(s => logs.push({
+      _id:         s._id + '_sch',
+      type:        'SCHOLARSHIP_UPDATED',
+      category:    'Scholarships',
+      title:       `Scholarship status updated`,
+      description: `${s.studentName || 'Student'} — ${s.status?.toUpperCase()}`,
+      status:      s.status,
+      date:        s.updatedAt,
+      meta: { name: s.studentName, status: s.status },
+    }))
+
+    // Filter by type
+    const filtered = type === 'all' ? logs : logs.filter(l => l.category === type)
+
+    // Sort by date descending
+    filtered.sort((a, b) => new Date(b.date) - new Date(a.date))
+
+    const total    = filtered.length
+    const skip     = (parseInt(page) - 1) * parseInt(limit)
+    const paginated = filtered.slice(skip, skip + parseInt(limit))
+
+    res.json({ success: true, data: paginated, total, page: parseInt(page), totalPages: Math.ceil(total / parseInt(limit)) })
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message })
+  }
+}
+
 // ─── REPORTS (monthly revenue from challans) ──────────────────
 const getMonthlyStats = async (req, res) => {
   try {
@@ -700,6 +782,6 @@ module.exports = {
   getTelemarketing, getTeleStats, updateTeleStatus, deleteTeleEntry, clearTeleList, addUnpaidChallans, addTeleNote,
   getApplications, getMonthlyStats,
   getDigiCourses,
-  updateDigiStudent, generateDigiChallan,
+  updateDigiStudent, generateDigiChallan, getAuditLogs,
 }
 

@@ -9,6 +9,7 @@ const {
   getApplications, getMonthlyStats,
   getDigiCourses,
   updateDigiStudent, generateDigiChallan,
+  getAuditLogs,
 } = require('../controllers/digiController')
 const { verifyToken } = require('../middleware/auth')
 
@@ -51,6 +52,9 @@ router.post('/telemarketing/:id/notes',  addTeleNote)
 
 // Reports
 router.get('/monthly-stats',             getMonthlyStats)
+
+// Audit Logs
+router.get('/audit-logs',                getAuditLogs)
 
 // Courses
 router.get('/courses',                   getDigiCourses)
