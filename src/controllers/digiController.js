@@ -481,24 +481,45 @@ const clearTeleList = async (req, res) => {
 const addUnpaidChallans = async (req, res) => {
   try {
     await connectMongo()
-    const unpaid = await DigiChallan.find({ paid: false })
-    let added = 0
-    for (const challan of unpaid) {
-      const exists = await DigiTeleChallan.findOne({ originalChallanId: challan._id })
-      if (exists) continue
-      const user = await DigiUser.findById(challan.userId).select('fullName rollNumber mobile email city')
-      if (!user) continue
-      await DigiTeleChallan.create({
-        originalChallanId: challan._id,
-        originalUserId:    challan.userId,
-        challanData: { challanId: challan.challanId, amount: challan.amount, paid: false },
-        userData:    { fullName: user.fullName, rollNumber: user.rollNumber, phone: user.mobile, email: user.email, city: user.city },
-        status:      'pending',
-        assignedDate: new Date(),
-      })
-      added++
+
+    // Get all unpaid challans + already existing tele entries in 2 queries
+    const [unpaid, existing] = await Promise.all([
+      DigiChallan.find({ paid: false }).lean(),
+      DigiTeleChallan.find({}, { originalChallanId: 1 }).lean(),
+    ])
+
+    const existingIds = new Set(existing.map(e => e.originalChallanId?.toString()))
+    const newChallans = unpaid.filter(c => !existingIds.has(c._id.toString()))
+
+    if (newChallans.length === 0) {
+      return res.json({ success: true, message: '0 new unpaid challans added.', added: 0 })
     }
-    res.json({ success: true, message: `${added} unpaid challans added.`, added })
+
+    // Fetch all needed users in one query
+    const userIds = [...new Set(newChallans.map(c => c.userId))]
+    const users   = await DigiUser.find({ _id: { $in: userIds } })
+      .select('fullName rollNumber mobile email city').lean()
+    const userMap = {}
+    users.forEach(u => { userMap[u._id.toString()] = u })
+
+    // Bulk insert
+    const now  = new Date()
+    const docs = newChallans
+      .filter(c => userMap[c.userId?.toString()])
+      .map(c => {
+        const u = userMap[c.userId?.toString()]
+        return {
+          originalChallanId: c._id,
+          originalUserId:    c.userId,
+          challanData: { challanId: c.challanId, amount: c.amount, paid: false },
+          userData:    { fullName: u.fullName, rollNumber: u.rollNumber, phone: u.mobile, email: u.email, city: u.city },
+          status:      'pending',
+          assignedDate: now,
+        }
+      })
+
+    await DigiTeleChallan.insertMany(docs)
+    res.json({ success: true, message: `${docs.length} unpaid challans added.`, added: docs.length })
   } catch (err) {
     res.status(500).json({ success: false, message: err.message })
   }
