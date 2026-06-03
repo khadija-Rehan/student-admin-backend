@@ -565,6 +565,28 @@ const generateDigiChallan = async (req, res) => {
       await challan.save()
     }
 
+    // Try to get filled HTML from Digikhyber-backend (uses actual challan-template.html)
+    try {
+      const digiApiUrl = process.env.DIGI_API_URL || 'https://digikhyber-backend.onrender.com/api'
+      const apiKey     = process.env.ADMIN_API_KEY || '123456789'
+      const controller = new AbortController()
+      const timeout    = setTimeout(() => controller.abort(), 25000)
+      const response   = await fetch(`${digiApiUrl}/admin/generate-challan-html`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+        body:    JSON.stringify({ userId }),
+        signal:  controller.signal,
+      })
+      clearTimeout(timeout)
+      if (response.ok) {
+        const result = await response.json()
+        if (result.data?.html) {
+          return res.json({ success: true, status: 'success', data: result.data })
+        }
+      }
+    } catch (_) { /* fallback below */ }
+
+    // Fallback: return student+challan data for frontend template
     res.json({
       success: true, status: 'success',
       data: {
