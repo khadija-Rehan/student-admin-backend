@@ -5,7 +5,7 @@ const {
   getDigiScholarships, updateScholarshipStatus,
   getDigiChallans, getDigiChallanStats, challanInquiry, markChallanPaid,
   updateTestScore, getDashboardStats,
-  getTelemarketing, getTeleStats, updateTeleStatus,
+  getTelemarketing, getTeleStats, updateTeleStatus, deleteTeleEntry, clearTeleList, addUnpaidChallans, addTeleNote,
   getApplications, getMonthlyStats,
   getDigiCourses,
   updateDigiStudent, generateDigiChallan,
@@ -44,6 +44,10 @@ router.post('/generate-challan',         generateDigiChallan)
 router.get('/telemarketing',             getTelemarketing)
 router.get('/telemarketing/stats',       getTeleStats)
 router.patch('/telemarketing/:id',       updateTeleStatus)
+router.delete('/telemarketing/clear',    clearTeleList)
+router.delete('/telemarketing/:id',      deleteTeleEntry)
+router.post('/telemarketing/add-unpaid', addUnpaidChallans)
+router.post('/telemarketing/:id/notes',  addTeleNote)
 
 // Reports
 router.get('/monthly-stats',             getMonthlyStats)

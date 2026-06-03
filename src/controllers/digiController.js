@@ -458,6 +458,67 @@ const updateTeleStatus = async (req, res) => {
   }
 }
 
+const deleteTeleEntry = async (req, res) => {
+  try {
+    await connectMongo()
+    await DigiTeleChallan.findByIdAndDelete(req.params.id)
+    res.json({ success: true, message: 'Deleted.' })
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message })
+  }
+}
+
+const clearTeleList = async (req, res) => {
+  try {
+    await connectMongo()
+    await DigiTeleChallan.deleteMany({})
+    res.json({ success: true, message: 'List cleared.' })
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message })
+  }
+}
+
+const addUnpaidChallans = async (req, res) => {
+  try {
+    await connectMongo()
+    const unpaid = await DigiChallan.find({ paid: false })
+    let added = 0
+    for (const challan of unpaid) {
+      const exists = await DigiTeleChallan.findOne({ originalChallanId: challan._id })
+      if (exists) continue
+      const user = await DigiUser.findById(challan.userId).select('fullName rollNumber mobile email city')
+      if (!user) continue
+      await DigiTeleChallan.create({
+        originalChallanId: challan._id,
+        originalUserId:    challan.userId,
+        challanData: { challanId: challan.challanId, amount: challan.amount, paid: false },
+        userData:    { fullName: user.fullName, rollNumber: user.rollNumber, phone: user.mobile, email: user.email, city: user.city },
+        status:      'pending',
+        assignedDate: new Date(),
+      })
+      added++
+    }
+    res.json({ success: true, message: `${added} unpaid challans added.`, added })
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message })
+  }
+}
+
+const addTeleNote = async (req, res) => {
+  try {
+    await connectMongo()
+    const { text, admin } = req.body
+    const doc = await DigiTeleChallan.findByIdAndUpdate(
+      req.params.id,
+      { $push: { notes: { text, date: new Date(), admin: admin || 'Admin' } } },
+      { new: true }
+    )
+    res.json({ success: true, data: doc })
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message })
+  }
+}
+
 // ─── APPLICATIONS (unverified students) ───────────────────────
 const getApplications = async (req, res) => {
   try {
@@ -615,7 +676,7 @@ module.exports = {
   getDigiScholarships, updateScholarshipStatus,
   getDigiChallans, getDigiChallanStats, challanInquiry, markChallanPaid,
   updateTestScore, getDashboardStats,
-  getTelemarketing, getTeleStats, updateTeleStatus,
+  getTelemarketing, getTeleStats, updateTeleStatus, deleteTeleEntry, clearTeleList, addUnpaidChallans, addTeleNote,
   getApplications, getMonthlyStats,
   getDigiCourses,
   updateDigiStudent, generateDigiChallan,
