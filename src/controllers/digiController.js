@@ -481,7 +481,14 @@ const clearTeleList = async (req, res) => {
 const addUnpaidChallans = async (req, res) => {
   try {
     await connectMongo()
-    const unpaid = await DigiChallan.find({ paid: false })
+    const { dateFrom, dateTo } = req.body
+    const query = { paid: false }
+    if (dateFrom || dateTo) {
+      query.createdAt = {}
+      if (dateFrom) query.createdAt.$gte = new Date(dateFrom)
+      if (dateTo)   query.createdAt.$lte = new Date(dateTo + 'T23:59:59')
+    }
+    const unpaid = await DigiChallan.find(query)
     let added = 0
     for (const challan of unpaid) {
       const exists = await DigiTeleChallan.findOne({ originalChallanId: challan._id })
