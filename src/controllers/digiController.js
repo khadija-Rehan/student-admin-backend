@@ -472,8 +472,15 @@ const deleteTeleEntry = async (req, res) => {
 const clearTeleList = async (req, res) => {
   try {
     await connectMongo()
-    await DigiTeleChallan.deleteMany({})
-    res.json({ success: true, message: 'List cleared.' })
+    const { dateFrom, dateTo } = req.body || {}
+    const query = {}
+    if (dateFrom || dateTo) {
+      query.assignedDate = {}
+      if (dateFrom) query.assignedDate.$gte = new Date(dateFrom)
+      if (dateTo)   query.assignedDate.$lte = new Date(dateTo + 'T23:59:59')
+    }
+    const result = await DigiTeleChallan.deleteMany(query)
+    res.json({ success: true, message: `${result.deletedCount} entries cleared.` })
   } catch (err) {
     res.status(500).json({ success: false, message: err.message })
   }
