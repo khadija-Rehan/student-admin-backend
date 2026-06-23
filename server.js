@@ -9,9 +9,6 @@ app.use(cors())
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
-// PostgreSQL connection
-require('./src/config/db')
-
 // MongoDB (Digikhyber) — connect on startup
 const connectMongo = require('./src/config/mongodb')
 connectMongo().catch(err => console.error('MongoDB startup error:', err.message))
