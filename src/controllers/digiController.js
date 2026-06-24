@@ -285,7 +285,6 @@ const challanInquiry = async (req, res) => {
         challanId:  challan.challanId,
         amount:     challan.amount,
         paid:       challan.paid,
-        psid:       challan.psid,
         txnId:      challan.txnId,
         txnDate:    challan.txnDate,
         branchCode: challan.branchCode,
@@ -370,10 +369,9 @@ const getDigiCourses = async (req, res) => {
 const updateDigiChallan = async (req, res) => {
   try {
     await connectMongo()
-    const { paid, psid, txnId, amount } = req.body
+    const { paid, txnId, amount } = req.body
     const update = {}
     if (paid     !== undefined) update.paid     = paid
-    if (psid     !== undefined) update.psid     = psid
     if (txnId    !== undefined) update.txnId    = txnId
     if (amount   !== undefined) update.amount   = amount
     if (paid === true)          update.txnDate  = new Date()

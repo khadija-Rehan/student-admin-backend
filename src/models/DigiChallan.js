@@ -4,7 +4,6 @@ const digiChallanSchema = new mongoose.Schema({
   userId:              { type: String },
   challanId:           { type: String },
   amount:              { type: Number },
-  psid:                { type: String,  default: null  },
   paid:                { type: Boolean, default: false },
   branchCode:          { type: Number },
   txnId:               { type: Number },
